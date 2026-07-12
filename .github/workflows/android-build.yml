@@ -13,6 +13,14 @@ on:
       - "calculator-app-android/**"
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional: create a GitHub release with this tag (e.g. v1.0.0) and attach the APK"
+        required: false
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -42,3 +50,19 @@ jobs:
           path: calculator-app-android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 90
+
+      - name: Create GitHub release with APK
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          cp calculator-app-android/app/build/outputs/apk/debug/app-debug.apk "omni-calculator-$TAG.apk"
+          gh release create "$TAG" \
+            "omni-calculator-$TAG.apk" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Omni Calculator $TAG" \
+            --notes "Calculator app with date/time math, unit & currency converters, and live time/date/temperature widgets.
+
+          **Install:** download \`omni-calculator-$TAG.apk\` below, open it on your Android phone (8.0+), and allow the install when prompted."
