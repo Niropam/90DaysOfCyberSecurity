@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Omni Calculator — Calculator &amp; Converters</title>
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #1a1f35;
+    --panel-2: #232a4a;
+    --text: #eef1ff;
+    --muted: #9aa3c7;
+    --accent: #4f8cff;
+    --accent-2: #7c5cff;
+    --good: #35c98e;
+    --warn: #ffb454;
+    --danger: #ff6b6b;
+    --radius: 14px;
+    --shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  [data-theme="light"] {
+    --bg: #eef1f8;
+    --panel: #ffffff;
+    --panel-2: #e7ecf7;
+    --text: #1c2340;
+    --muted: #5b6485;
+    --shadow: 0 8px 24px rgba(30,40,90,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .app {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Header: clock / date / temperature ---------- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: stretch;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .widget {
+    flex: 1 1 180px;
+    background: linear-gradient(135deg, var(--panel), var(--panel-2));
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 84px;
+  }
+  .widget .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .widget .value { font-size: 26px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .widget .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .widget.temp .value button {
+    background: none; border: none; color: var(--accent); font-size: 14px;
+    cursor: pointer; margin-left: 6px; vertical-align: middle;
+  }
+  .top-actions { display: flex; align-items: center; gap: 8px; }
+  .theme-btn {
+    border: none; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+    background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-size: 16px;
+  }
+
+  /* ---------- Tabs ---------- */
+  nav.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  nav.tabs button {
+    border: none;
+    background: var(--panel);
+    color: var(--muted);
+    padding: 10px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all .15s ease;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+  }
+  section.tab { display: none; }
+  section.tab.active { display: block; animation: fade .2s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+  .card h2 { font-size: 18px; margin-bottom: 14px; }
+  .card + .card { margin-top: 16px; }
+
+  /* ---------- Calculator ---------- */
+  .calc { max-width: 380px; margin: 0 auto; }
+  .calc-display {
+    background: var(--panel-2);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    text-align: right;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .calc-display .expr { min-height: 20px; font-size: 14px; color: var(--muted); word-break: break-all; }
+  .calc-display .result { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; word-break: break-all; }
+  .calc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .calc-grid button {
+    border: none;
+    border-radius: 12px;
+    padding: 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--panel-2);
+    color: var(--text);
+    transition: filter .1s ease, transform .05s ease;
+  }
+  .calc-grid button:active { transform: scale(.96); }
+  .calc-grid button:hover { filter: brightness(1.15); }
+  .calc-grid .op { color: var(--accent); }
+  .calc-grid .fn { color: var(--warn); font-size: 15px; }
+  .calc-grid .eq {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    grid-column: span 2;
+  }
+  .calc-grid .clear { color: var(--danger); }
+
+  /* ---------- Forms / converters ---------- */
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 150px; }
+  .field label { font-size: 13px; color: var(--muted); }
+  input, select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 15px;
+    width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .swap-btn {
+    border: none; background: var(--panel-2); color: var(--accent);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer; font-size: 18px;
+    align-self: flex-end;
+  }
+  .result-box {
+    margin-top: 14px;
+    background: var(--panel-2);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 16px;
+    min-height: 46px;
+    word-break: break-word;
+  }
+  .result-box strong { font-size: 20px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .btn {
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #fff;
+    padding: 11px 20px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn.secondary { background: var(--panel-2); color: var(--text); }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+  @media (max-width: 560px) {
+    .widget .value { font-size: 20px; }
+    .calc-grid button { padding: 13px 0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ Header widgets: time, date, temperature ============ -->
+  <header>
+    <div class="widget">
+      <div class="label">Current time</div>
+      <div class="value" id="clockTime">--:--:--</div>
+      <div class="sub" id="clockZone"></div>
+    </div>
+    <div class="widget">
+      <div class="label">Today's date</div>
+      <div class="value" id="clockDate">—</div>
+      <div class="sub" id="clockWeek"></div>
+    </div>
+    <div class="widget temp">
+      <div class="label">Temperature</div>
+      <div class="value"><span id="tempValue">—</span><button id="tempUnitBtn" title="Switch °C/°F">°C ⇄ °F</button></div>
+      <div class="sub" id="tempStatus">Locating…</div>
+    </div>
+    <div class="top-actions">
+      <button class="theme-btn" id="themeBtn" title="Toggle light/dark theme">🌓</button>
+    </div>
+  </header>
+
+  <!-- ============ Tabs ============ -->
+  <nav class="tabs" id="tabs">
+    <button data-tab="calc" class="active">🧮 Calculator</button>
+    <button data-tab="datetime">📅 Date &amp; Time</button>
+    <button data-tab="length">📏 Length</button>
+    <button data-tab="weight">⚖️ Weight</button>
+    <button data-tab="speed">🚀 Speed</button>
+    <button data-tab="volume">🧪 Volume</button>
+    <button data-tab="temperature">🌡️ Temperature</button>
+    <button data-tab="currency">💱 Currency</button>
+  </nav>
+
+  <!-- ============ Standard calculator ============ -->
+  <section class="tab active" id="tab-calc">
+    <div class="card calc">
+      <div class="calc-display">
+        <div class="expr" id="calcExpr">&nbsp;</div>
+        <div class="result" id="calcResult">0</div>
+      </div>
+      <div class="calc-grid" id="calcGrid">
+        <button class="clear" data-key="AC">AC</button>
+        <button class="fn" data-key="DEL">⌫</button>
+        <button class="fn" data-key="%">%</button>
+        <button class="op" data-key="/">÷</button>
+        <button class="fn" data-key="sqrt">√</button>
+        <button class="fn" data-key="^">xʸ</button>
+        <button class="fn" data-key="(">(</button>
+        <button class="fn" data-key=")">)</button>
+        <button data-key="7">7</button>
+        <button data-key="8">8</button>
+        <button data-key="9">9</button>
+        <button class="op" data-key="*">×</button>
+        <button data-key="4">4</button>
+        <button data-key="5">5</button>
+        <button data-key="6">6</button>
+        <button class="op" data-key="-">−</button>
+        <button data-key="1">1</button>
+        <button data-key="2">2</button>
+        <button data-key="3">3</button>
+        <button class="op" data-key="+">+</button>
+        <button data-key="0">0</button>
+        <button data-key=".">.</button>
+        <button class="eq" data-key="=">=</button>
+      </div>
+      <p class="hint">Keyboard supported: digits, + − × ÷, ( ), %, ^, Enter (=), Backspace, Esc (AC).</p>
+    </div>
+  </section>
+
+  <!-- ============ Date & time calculator ============ -->
+  <section class="tab" id="tab-datetime">
+    <div class="card">
+      <h2>Difference between two dates &amp; times</h2>
+      <div class="row">
+        <div class="field"><label>From</label><input type="datetime-local" id="dtFrom"></div>
+        <div class="field"><label>To</label><input type="datetime-local" id="dtTo"></div>
+        <button class="btn" id="dtDiffBtn">Calculate</button>
+      </div>
+      <div class="result-box" id="dtDiffResult">Pick two dates and press Calculate.</div>
+    </div>
+
+    <div class="card">
+      <h2>Add / subtract from a date</h2>
+      <div class="row">
+        <div class="field"><label>Start date &amp; time</label><input type="datetime-local" id="dtStart"></div>
+        <div class="field"><label>Operation</label>
+          <select id="dtOp"><option value="1">Add (+)</option><option value="-1">Subtract (−)</option></select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="field"><label>Years</label><input type="number" id="dtYears" value="0"></div>
+        <div class="field"><label>Months</label><input type="number" id="dtMonths" value="0"></div>
+        <div class="field"><label>Days</label><input type="number" id="dtDays" value="0"></div>
+        <div class="field"><label>Hours</label><input type="number" id="dtHours" value="0"></div>
+        <div class="field"><label>Minutes</label><input type="number" id="dtMinutes" value="0"></div>
+        <button class="btn" id="dtAddBtn">Calculate</button>
+      </div>
+      <div class="result-box" id="dtAddResult">Set a start date, a duration, and press Calculate.</div>
+    </div>
+
+    <div class="card">
+      <h2>Age calculator</h2>
+      <div class="row">
+        <div class="field"><label>Date of birth</label><input type="date" id="dobInput"></div>
+        <button class="btn" id="ageBtn">Calculate age</button>
+      </div>
+      <div class="result-box" id="ageResult">Enter a date of birth.</div>
+    </div>
+  </section>
+
+  <!-- ============ Unit converter tabs (generated) ============ -->
+  <section class="tab" id="tab-length"></section>
+  <section class="tab" id="tab-weight"></section>
+  <section class="tab" id="tab-speed"></section>
+  <section class="tab" id="tab-volume"></section>
+  <section class="tab" id="tab-temperature"></section>
+
+  <!-- ============ Currency ============ -->
+  <section class="tab" id="tab-currency">
+    <div class="card">
+      <h2>Currency converter</h2>
+      <div class="row">
+        <div class="field"><label>Amount</label><input type="number" id="curAmount" value="1" min="0" step="any"></div>
+        <div class="field"><label>From</label><select id="curFrom"></select></div>
+        <button class="swap-btn" id="curSwap" title="Swap">⇄</button>
+        <div class="field"><label>To</label><select id="curTo"></select></div>
+      </div>
+      <div class="result-box" id="curResult">Enter an amount.</div>
+      <p class="hint" id="curRatesInfo">Loading live rates…</p>
+      <button class="btn secondary" id="curRefresh" style="margin-top:10px">↻ Refresh live rates</button>
+    </div>
+  </section>
+
+  <footer>Omni Calculator — calculator, date/time math &amp; unit converters. Works offline (currency falls back to built-in reference rates).</footer>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+/* ================= Theme ================= */
+$("themeBtn").addEventListener("click", () => {
+  const root = document.documentElement;
+  root.dataset.theme = root.dataset.theme === "light" ? "" : "light";
+});
+
+/* ================= Tabs ================= */
+$("tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tab]");
+  if (!btn) return;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b === btn));
+  document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("active", s.id === "tab-" + btn.dataset.tab));
+});
+
+/* ================= Live clock & date ================= */
+function tickClock() {
+  const now = new Date();
+  $("clockTime").textContent = now.toLocaleTimeString();
+  $("clockDate").textContent = now.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  $("clockWeek").textContent = now.toLocaleDateString(undefined, { weekday: "long" });
+  try {
+    $("clockZone").textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch (e) { /* older browsers */ }
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ================= Temperature widget (Open-Meteo, no API key) ================= */
+let tempC = null;
+let tempUnit = "C";
+function renderTemp() {
+  if (tempC === null) { $("tempValue").textContent = "—"; return; }
+  $("tempValue").textContent = tempUnit === "C"
+    ? tempC.toFixed(1) + " °C"
+    : (tempC * 9 / 5 + 32).toFixed(1) + " °F";
+}
+$("tempUnitBtn").addEventListener("click", () => { tempUnit = tempUnit === "C" ? "F" : "C"; renderTemp(); });
+
+function fetchWeather(lat, lon, placeNote) {
+  const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current=temperature_2m";
+  fetch(url)
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(d => {
+      tempC = d.current.temperature_2m;
+      renderTemp();
+      $("tempStatus").textContent = placeNote + " · updated " + new Date().toLocaleTimeString();
+    })
+    .catch(() => { $("tempStatus").textContent = "Weather unavailable (offline?)"; });
+}
+function initWeather() {
+  if (!navigator.geolocation) { $("tempStatus").textContent = "Geolocation not supported"; return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => fetchWeather(pos.coords.latitude.toFixed(3), pos.coords.longitude.toFixed(3), "Your location"),
+    () => { $("tempStatus").textContent = "Location denied — no temperature"; },
+    { timeout: 10000 }
+  );
+}
+initWeather();
+setInterval(() => { if (tempC !== null) initWeather(); }, 10 * 60 * 1000); // refresh every 10 min
+
+/* ================= Standard calculator ================= */
+let calcExpr = "";
+function calcRender(preview) {
+  $("calcExpr").innerHTML = calcExpr ? calcExpr.replace(/\*/g, "×").replace(/\//g, "÷") : "&nbsp;";
+  $("calcResult").textContent = preview;
+}
+function safeEval(expr) {
+  // Only digits, operators, parens, dot, percent, caret and the sqrt marker survive.
+  if (!/^[\d+\-*/().%^s ]*$/.test(expr.replace(/sqrt/g, "s"))) throw new Error("bad chars");
+  let js = expr
+    .replace(/(\d+(\.\d+)?)%/g, "($1/100)")   // 50% -> (50/100)
+    .replace(/\^/g, "**")
+    .replace(/sqrt\(/g, "Math.sqrt(");
+  if (/[a-zA-Z]/.test(js.replace(/Math\.sqrt/g, ""))) throw new Error("bad token");
+  const val = Function('"use strict"; return (' + js + ')')();
+  if (typeof val !== "number" || !isFinite(val)) throw new Error("not finite");
+  return val;
+}
+function calcPreview() {
+  if (!calcExpr) return "0";
+  try { return formatNum(safeEval(calcExpr)); } catch (e) { return "…"; }
+}
+function formatNum(n) {
+  if (Number.isInteger(n) && Math.abs(n) < 1e15) return n.toLocaleString();
+  return parseFloat(n.toPrecision(12)).toLocaleString(undefined, { maximumFractionDigits: 10 });
+}
+function calcInput(key) {
+  if (key === "AC") { calcExpr = ""; }
+  else if (key === "DEL") {
+    calcExpr = calcExpr.endsWith("sqrt(") ? calcExpr.slice(0, -5) : calcExpr.slice(0, -1);
+  }
+  else if (key === "=") {
+    try { calcExpr = String(safeEval(calcExpr)); } catch (e) { calcRender("Error"); return; }
+  }
+  else if (key === "sqrt") { calcExpr += "sqrt("; }
+  else { calcExpr += key; }
+  calcRender(calcPreview());
+}
+$("calcGrid").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-key]");
+  if (btn) calcInput(btn.dataset.key);
+});
+document.addEventListener("keydown", (e) => {
+  if (!$("tab-calc").classList.contains("active")) return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  const map = { "Enter": "=", "=": "=", "Backspace": "DEL", "Escape": "AC", "Delete": "AC" };
+  const key = map[e.key] || ("0123456789.+-*/()%^".includes(e.key) ? e.key : null);
+  if (key) { e.preventDefault(); calcInput(key); }
+});
+
+/* ================= Date & time calculators ================= */
+function toLocalInputValue(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+         "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+(function initDates() {
+  const now = new Date();
+  $("dtFrom").value = toLocalInputValue(now);
+  $("dtTo").value = toLocalInputValue(new Date(now.getTime() + 24 * 3600 * 1000));
+  $("dtStart").value = toLocalInputValue(now);
+})();
+
+$("dtDiffBtn").addEventListener("click", () => {
+  const from = new Date($("dtFrom").value), to = new Date($("dtTo").value);
+  if (isNaN(from) || isNaN(to)) { $("dtDiffResult").textContent = "Please fill both dates."; return; }
+  let a = from, b = to, sign = "";
+  if (a > b) { [a, b] = [b, a]; sign = "− (negative: From is after To) "; }
+
+  // Calendar breakdown: years / months / days / h / m
+  let y = b.getFullYear() - a.getFullYear();
+  let mo = b.getMonth() - a.getMonth();
+  let d = b.getDate() - a.getDate();
+  let h = b.getHours() - a.getHours();
+  let mi = b.getMinutes() - a.getMinutes();
+  if (mi < 0) { mi += 60; h--; }
+  if (h < 0) { h += 24; d--; }
+  if (d < 0) { const prevMonth = new Date(b.getFullYear(), b.getMonth(), 0); d += prevMonth.getDate(); mo--; }
+  if (mo < 0) { mo += 12; y--; }
+
+  const totalMs = b - a;
+  const totalDays = totalMs / 86400000;
+  $("dtDiffResult").innerHTML =
+    sign + "<strong>" + y + " years, " + mo + " months, " + d + " days, " + h + " h " + mi + " min</strong><br>" +
+    "Total: " + Math.floor(totalDays).toLocaleString() + " days · " +
+    Math.floor(totalMs / 3600000).toLocaleString() + " hours · " +
+    Math.floor(totalMs / 60000).toLocaleString() + " minutes · " +
+    (totalDays / 7).toFixed(1) + " weeks";
+});
+
+$("dtAddBtn").addEventListener("click", () => {
+  const start = new Date($("dtStart").value);
+  if (isNaN(start)) { $("dtAddResult").textContent = "Please set a start date."; return; }
+  const s = Number($("dtOp").value);
+  const d = new Date(start);
+  d.setFullYear(d.getFullYear() + s * Number($("dtYears").value || 0));
+  d.setMonth(d.getMonth() + s * Number($("dtMonths").value || 0));
+  d.setDate(d.getDate() + s * Number($("dtDays").value || 0));
+  d.setHours(d.getHours() + s * Number($("dtHours").value || 0));
+  d.setMinutes(d.getMinutes() + s * Number($("dtMinutes").value || 0));
+  $("dtAddResult").innerHTML = "<strong>" +
+    d.toLocaleString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) +
+    "</strong>";
+});
+
+$("ageBtn").addEventListener("click", () => {
+  const dob = new Date($("dobInput").value);
+  if (isNaN(dob)) { $("ageResult").textContent = "Please enter a date of birth."; return; }
+  const now = new Date();
+  if (dob > now) { $("ageResult").textContent = "Date of birth is in the future."; return; }
+  let y = now.getFullYear() - dob.getFullYear();
+  let mo = now.getMonth() - dob.getMonth();
+  let d = now.getDate() - dob.getDate();
+  if (d < 0) { d += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); mo--; }
+  if (mo < 0) { mo += 12; y--; }
+  const totalDays = Math.floor((now - dob) / 86400000);
+  const next = new Date(now.getFullYear(), dob.getMonth(), dob.getDate());
+  if (next < now) next.setFullYear(next.getFullYear() + 1);
+  const toBday = Math.ceil((next - now) / 86400000);
+  $("ageResult").innerHTML = "<strong>" + y + " years, " + mo + " months, " + d + " days</strong><br>" +
+    "≈ " + totalDays.toLocaleString() + " days lived · next birthday in " + toBday + " day(s)";
+});
+
+/* ================= Unit converters ================= */
+/* factor = how many base units in 1 of this unit (base listed per category) */
+const CONVERTERS = {
+  length: {
+    title: "Length converter", base: "metre",
+    units: {
+      "Millimetre (mm)": 0.001, "Centimetre (cm)": 0.01, "Metre (m)": 1, "Kilometre (km)": 1000,
+      "Inch (in)": 0.0254, "Foot (ft)": 0.3048, "Yard (yd)": 0.9144, "Mile (mi)": 1609.344,
+      "Nautical mile (nmi)": 1852, "Micrometre (µm)": 1e-6, "Light year (ly)": 9.4607304725808e15
+    },
+    defaults: ["Metre (m)", "Foot (ft)"]
+  },
+  weight: {
+    title: "Weight / mass converter", base: "kilogram",
+    units: {
+      "Milligram (mg)": 1e-6, "Gram (g)": 0.001, "Kilogram (kg)": 1, "Metric tonne (t)": 1000,
+      "Ounce (oz)": 0.028349523125, "Pound (lb)": 0.45359237, "Stone (st)": 6.35029318,
+      "US ton (short)": 907.18474, "Imperial ton (long)": 1016.0469088, "Carat (ct)": 0.0002
+    },
+    defaults: ["Kilogram (kg)", "Pound (lb)"]
+  },
+  speed: {
+    title: "Speed converter", base: "metre/second",
+    units: {
+      "Metre/second (m/s)": 1, "Kilometre/hour (km/h)": 1 / 3.6, "Mile/hour (mph)": 0.44704,
+      "Foot/second (ft/s)": 0.3048, "Knot (kn)": 0.514444444, "Mach (sea level)": 340.29,
+      "Speed of light (c)": 299792458
+    },
+    defaults: ["Kilometre/hour (km/h)", "Mile/hour (mph)"]
+  },
+  volume: {
+    title: "Volume converter (metric, US &amp; imperial)", base: "litre",
+    units: {
+      "Millilitre (mL)": 0.001, "Litre (L)": 1, "Cubic metre (m³)": 1000,
+      "Cubic centimetre (cm³)": 0.001, "Cubic inch (in³)": 0.016387064, "Cubic foot (ft³)": 28.316846592,
+      "US teaspoon": 0.00492892159375, "US tablespoon": 0.01478676478125, "US fluid ounce": 0.0295735295625,
+      "US cup": 0.2365882365, "US pint": 0.473176473, "US quart": 0.946352946, "US gallon": 3.785411784,
+      "Imperial fluid ounce": 0.0284130625, "Imperial pint": 0.56826125, "Imperial quart": 1.1365225,
+      "Imperial gallon": 4.54609
+    },
+    defaults: ["Litre (L)", "US gallon"]
+  }
+};
+
+function buildConverter(key, cfg) {
+  const section = $("tab-" + key);
+  const names = Object.keys(cfg.units);
+  section.innerHTML =
+    '<div class="card"><h2>' + cfg.title + '</h2>' +
+    '<div class="row">' +
+      '<div class="field"><label>Value</label><input type="number" step="any" id="' + key + 'Val" value="1"></div>' +
+      '<div class="field"><label>From</label><select id="' + key + 'From"></select></div>' +
+      '<button class="swap-btn" id="' + key + 'Swap" title="Swap">⇄</button>' +
+      '<div class="field"><label>To</label><select id="' + key + 'To"></select></div>' +
+    '</div>' +
+    '<div class="result-box" id="' + key + 'Result"></div>' +
+    '<p class="hint">Base unit: ' + cfg.base + '. Conversions update as you type.</p></div>';
+
+  const from = $(key + "From"), to = $(key + "To");
+  names.forEach(n => {
+    from.add(new Option(n, n));
+    to.add(new Option(n, n));
+  });
+  from.value = cfg.defaults[0];
+  to.value = cfg.defaults[1];
+
+  const run = () => {
+    const v = parseFloat($(key + "Val").value);
+    if (isNaN(v)) { $(key + "Result").textContent = "Enter a value."; return; }
+    const out = v * cfg.units[from.value] / cfg.units[to.value];
+    $(key + "Result").innerHTML = v.toLocaleString(undefined, { maximumFractionDigits: 10 }) + " " + from.value +
+      " = <strong>" + formatNum(out) + "</strong> " + to.value;
+  };
+  [$(key + "Val"), from, to].forEach(el => el.addEventListener("input", run));
+  $(key + "Swap").addEventListener("click", () => {
+    const t = from.value; from.value = to.value; to.value = t; run();
+  });
+  run();
+}
+Object.entries(CONVERTERS).forEach(([key, cfg]) => buildConverter(key, cfg));
+
+/* ================= Temperature converter (formula-based) ================= */
+(function buildTemperature() {
+  const section = $("tab-temperature");
+  section.innerHTML =
+    '<div class="card"><h2>Temperature converter</h2>' +
+    '<div class="row">' +
+      '<div class="field"><label>Value</label><input type="number" step="any" id="tmpVal" value="25"></div>' +
+      '<div class="field"><label>From</label><select id="tmpFrom">' +
+        '<option>Celsius (°C)</option><option>Fahrenheit (°F)</option><option>Kelvin (K)</option><option>Rankine (°R)</option>' +
+      '</select></div>' +
+      '<button class="swap-btn" id="tmpSwap" title="Swap">⇄</button>' +
+      '<div class="field"><label>To</label><select id="tmpTo">' +
+        '<option>Celsius (°C)</option><option selected>Fahrenheit (°F)</option><option>Kelvin (K)</option><option>Rankine (°R)</option>' +
+      '</select></div>' +
+    '</div>' +
+    '<div class="result-box" id="tmpResult"></div>' +
+    '<p class="hint">Supports Celsius, Fahrenheit, Kelvin and Rankine.</p></div>';
+
+  const toC = { "Celsius (°C)": v => v, "Fahrenheit (°F)": v => (v - 32) * 5 / 9, "Kelvin (K)": v => v - 273.15, "Rankine (°R)": v => (v - 491.67) * 5 / 9 };
+  const fromC = { "Celsius (°C)": v => v, "Fahrenheit (°F)": v => v * 9 / 5 + 32, "Kelvin (K)": v => v + 273.15, "Rankine (°R)": v => (v + 273.15) * 9 / 5 };
+  const run = () => {
+    const v = parseFloat($("tmpVal").value);
+    if (isNaN(v)) { $("tmpResult").textContent = "Enter a value."; return; }
+    const out = fromC[$("tmpTo").value](toC[$("tmpFrom").value](v));
+    $("tmpResult").innerHTML = v.toLocaleString() + " " + $("tmpFrom").value + " = <strong>" +
+      parseFloat(out.toFixed(4)).toLocaleString() + "</strong> " + $("tmpTo").value;
+  };
+  ["tmpVal", "tmpFrom", "tmpTo"].forEach(id => $(id).addEventListener("input", run));
+  $("tmpSwap").addEventListener("click", () => {
+    const t = $("tmpFrom").value; $("tmpFrom").value = $("tmpTo").value; $("tmpTo").value = t; run();
+  });
+  run();
+})();
+
+/* ================= Currency converter ================= */
+/* Offline fallback: approximate reference rates per 1 USD (mid-2026). Live rates
+   are fetched from open.er-api.com when online and override these. */
+const FALLBACK_RATES = {
+  USD: 1, EUR: 0.93, GBP: 0.79, JPY: 155, INR: 84, BDT: 118, PKR: 278, CNY: 7.2,
+  AUD: 1.5, CAD: 1.37, CHF: 0.88, SGD: 1.34, AED: 3.67, SAR: 3.75, MYR: 4.6,
+  THB: 35, KRW: 1350, RUB: 90, BRL: 5.4, ZAR: 18, TRY: 34, NGN: 1500, EGP: 48,
+  IDR: 16000, PHP: 57, VND: 25400, MXN: 18.5, SEK: 10.4, NOK: 10.6, DKK: 6.9,
+  PLN: 4.0, NZD: 1.64, HKD: 7.8, TWD: 32, LKR: 300, NPR: 134, QAR: 3.64, KWD: 0.31
+};
+const CURRENCY_NAMES = {
+  USD: "US Dollar", EUR: "Euro", GBP: "British Pound", JPY: "Japanese Yen", INR: "Indian Rupee",
+  BDT: "Bangladeshi Taka", PKR: "Pakistani Rupee", CNY: "Chinese Yuan", AUD: "Australian Dollar",
+  CAD: "Canadian Dollar", CHF: "Swiss Franc", SGD: "Singapore Dollar", AED: "UAE Dirham",
+  SAR: "Saudi Riyal", MYR: "Malaysian Ringgit", THB: "Thai Baht", KRW: "South Korean Won",
+  RUB: "Russian Ruble", BRL: "Brazilian Real", ZAR: "South African Rand", TRY: "Turkish Lira",
+  NGN: "Nigerian Naira", EGP: "Egyptian Pound", IDR: "Indonesian Rupiah", PHP: "Philippine Peso",
+  VND: "Vietnamese Dong", MXN: "Mexican Peso", SEK: "Swedish Krona", NOK: "Norwegian Krone",
+  DKK: "Danish Krone", PLN: "Polish Zloty", NZD: "New Zealand Dollar", HKD: "Hong Kong Dollar",
+  TWD: "New Taiwan Dollar", LKR: "Sri Lankan Rupee", NPR: "Nepalese Rupee", QAR: "Qatari Riyal",
+  KWD: "Kuwaiti Dinar"
+};
+let rates = Object.assign({}, FALLBACK_RATES);
+let ratesSource = "built-in reference rates (approximate)";
+
+function fillCurrencySelects() {
+  const from = $("curFrom"), to = $("curTo");
+  const prevFrom = from.value, prevTo = to.value;
+  from.innerHTML = ""; to.innerHTML = "";
+  Object.keys(rates).sort().forEach(code => {
+    const label = code + (CURRENCY_NAMES[code] ? " — " + CURRENCY_NAMES[code] : "");
+    from.add(new Option(label, code));
+    to.add(new Option(label, code));
+  });
+  from.value = rates[prevFrom] ? prevFrom : "USD";
+  to.value = rates[prevTo] ? prevTo : "EUR";
+}
+function convertCurrency() {
+  const amt = parseFloat($("curAmount").value);
+  if (isNaN(amt)) { $("curResult").textContent = "Enter an amount."; return; }
+  const f = $("curFrom").value, t = $("curTo").value;
+  const out = amt / rates[f] * rates[t];
+  const rate = rates[t] / rates[f];
+  $("curResult").innerHTML = amt.toLocaleString(undefined, { maximumFractionDigits: 6 }) + " " + f +
+    " = <strong>" + out.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " " + t + "</strong><br>" +
+    "1 " + f + " = " + rate.toLocaleString(undefined, { maximumFractionDigits: 6 }) + " " + t;
+}
+function loadLiveRates() {
+  $("curRatesInfo").textContent = "Loading live rates…";
+  fetch("https://open.er-api.com/v6/latest/USD")
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(d => {
+      if (d.result !== "success" || !d.rates) throw new Error("bad payload");
+      rates = d.rates;
+      ratesSource = "live rates (open.er-api.com), updated " + new Date(d.time_last_update_utc).toLocaleString();
+      fillCurrencySelects();
+      convertCurrency();
+      $("curRatesInfo").textContent = "Source: " + ratesSource;
+    })
+    .catch(() => {
+      $("curRatesInfo").textContent = "Could not fetch live rates — using " + ratesSource + ".";
+    });
+}
+fillCurrencySelects();
+convertCurrency();
+["curAmount", "curFrom", "curTo"].forEach(id => $(id).addEventListener("input", convertCurrency));
+$("curSwap").addEventListener("click", () => {
+  const t = $("curFrom").value; $("curFrom").value = $("curTo").value; $("curTo").value = t; convertCurrency();
+});
+$("curRefresh").addEventListener("click", loadLiveRates);
+loadLiveRates();
+</script>
+</body>
+</html>
